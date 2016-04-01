@@ -6,7 +6,7 @@ var test = require('tape')
 var path = require('path')
 var vm = require('vm')
 var fs = require('fs')
-
+var extend = require('@f/extend')
 var sourceMap = require('../src')
 
 
@@ -17,7 +17,7 @@ var sourceMap = require('../src')
 test('should work', function (t) {
   var content = fs.readFileSync(path.join(__dirname, './fixtures/build.js'))
   var map = sourceMap.get(content)
-  var ctx = Object.assign({}, global)
+  var ctx = extend({}, global)
   ctx.require = require
   var ret = vm.runInNewContext(content, ctx)
   try {
