@@ -6,7 +6,7 @@
 [![NPM version][npm-image]][npm-url]
 [![Code style][standard-image]][standard-url]
 
-Apply source maps of current file to stack traces.
+Source map stack traces.
 
 ## Installation
 
