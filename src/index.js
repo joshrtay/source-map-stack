@@ -63,7 +63,7 @@ function getPosition(map, frame) {
 
   // Fix position in Node where some (internal) code is prepended.
   // See https://github.com/evanw/node-source-map-support/issues/36
-  if (line === 1 && !frame.isEval()) {
+  if (line === 1) {
     column -= 62;
   }
   return map.originalPositionFor({
