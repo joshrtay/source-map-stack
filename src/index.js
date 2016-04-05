@@ -2,63 +2,70 @@
  * Imports
  */
 
-var stackTrace = require('stack-trace')
-var SourceMapConsumer = require('source-map').SourceMapConsumer
-var path = require('path')
+var stackTrace = require('stack-trace');
+var SourceMapConsumer = require('source-map').SourceMapConsumer;
+var path = require('path');
 
-exports.get = getSourceMaps
-exports.stack = prepareStackTrace
+exports.get = getSourceMaps;
+exports.stack = prepareStackTrace;
 
 var reSourceMap = /^data:application\/json[^,]+base64,/;
-function getSourceMaps (content) {
+function getSourceMaps(content) {
   //        //# sourceMappingURL=foo.js.map                       /*# sourceMappingURL=foo.js.map */
   var re = /(?:\/\/[@#][ \t]+sourceMappingURL=([^\s'"]+?)[ \t]*$)|(?:\/\*[@#][ \t]+sourceMappingURL=([^\*]+?)[ \t]*(?:\*\/)[ \t]*$)/mg;
   // Keep executing the search to find the *last* sourceMappingURL to avoid
   // picking up sourceMappingURLs from comments, strings, etc.
   var lastMatch, match;
-  while (match = re.exec(content)) lastMatch = match;
-  if (!lastMatch) return null;
-  var sourceMappingURL = lastMatch[1]
-  var rawData = sourceMappingURL.slice(sourceMappingURL.indexOf(',') + 1)
-  return new SourceMapConsumer(new Buffer(rawData, "base64").toString())
+  while (match = re.exec(content)) {
+    lastMatch = match;
+  }if (!lastMatch) return null;
+  var sourceMappingURL = lastMatch[1];
+  var rawData = sourceMappingURL.slice(sourceMappingURL.indexOf(',') + 1);
+  return new SourceMapConsumer(new Buffer(rawData, "base64").toString());
 }
 
 function prepareStackTrace(map, error, base) {
-  base = base || ''
-  var stack = stackTrace.parse(error)
+  base = base || '';
+  var stack = stackTrace.parse(error);
 
-  return getErrorSource(base, map, stack[0]) + error + stack.map(function(frame) {
+  return getErrorSource(base, map, stack[0]) + error + stack.map(function (frame) {
     return '\n    at ' + wrapCallSite(base, map, frame);
   }).join('');
 }
 
-
 function getErrorSource(base, map, topFrame) {
-  var position = getPosition(map, topFrame)
-  var original = map.sourceContentFor(position.source)
+  var position = getPosition(map, topFrame);
+  var original = map.sourceContentFor(position.source);
   var code = original.split(/(?:\r\n|\r|\n)/)[position.line - 1];
-  return path.resolve(path.join(base, position.source)) + ':' + position.line + '\n' + code + '\n' +
-    new Array(position.column + 3).join(' ') + '^\n\n';
+  return path.resolve(path.join(base, position.source)) + ':' + position.line + '\n' + code + '\n' + new Array(position.column + 3).join(' ') + '^\n\n';
 }
 
 function wrapCallSite(base, map, frame) {
   frame = cloneCallSite(frame);
-  if (!frame.getFileName()) return frame
-  var position = getPosition(map, frame)
-  if (!position.source) return frame
-  frame.getFileName = function() { return path.resolve(path.join(base, position.source)) };
-  frame.getLineNumber = function() { return position.line; };
-  frame.getColumnNumber = function() { return position.column + 1; };
-  frame.getScriptNameOrSourceURL = function() { return position.source; };
+  var source = frame.getFileName()
+  if (!source) return frame;
+  if (source !== 'evalmachine.<anonymous>' && !map.sourceContentFor(source, true)) return frame
+  var position = getPosition(map, frame);
+  if (!position.source) return frame;
+  frame.getFileName = function () {
+    return path.resolve(path.join(base, position.source));
+  };
+  frame.getLineNumber = function () {
+    return position.line;
+  };
+  frame.getColumnNumber = function () {
+    return position.column + 1;
+  };
+  frame.getScriptNameOrSourceURL = function () {
+    return position.source;
+  };
   return frame;
-
 }
 
 function getPosition(map, frame) {
-  var source = frame.getFileName()
+  var source = frame.getFileName();
   var line = frame.getLineNumber();
   var column = frame.getColumnNumber() - 1;
-
   // Fix position in Node where some (internal) code is prepended.
   // See https://github.com/evanw/node-source-map-support/issues/36
   if (line === 1) {
@@ -73,8 +80,10 @@ function getPosition(map, frame) {
 
 function cloneCallSite(frame) {
   var object = {};
-  Object.getOwnPropertyNames(Object.getPrototypeOf(frame)).forEach(function(name) {
-    object[name] = /^(?:is|get)/.test(name) ? function() { return frame[name].call(frame); } : frame[name];
+  Object.getOwnPropertyNames(Object.getPrototypeOf(frame)).forEach(function (name) {
+    object[name] = /^(?:is|get)/.test(name) ? function () {
+      return frame[name].call(frame);
+    } : frame[name];
   });
   object.toString = CallSiteToString;
   return object;
@@ -95,7 +104,7 @@ function CallSiteToString() {
     fileName = this.scriptNameOrSourceURL && this.scriptNameOrSourceURL() || this.getFileName();
     if (!fileName && this.isEval && this.isEval()) {
       fileLocation = this.getEvalOrigin();
-      fileLocation += ", ";  // Expecting source position to follow.
+      fileLocation += ", "; // Expecting source position to follow.
     }
 
     if (fileName) {
@@ -120,10 +129,10 @@ function CallSiteToString() {
   var functionName = this.getFunctionName();
   var addSuffix = true;
   var isConstructor = this.isConstructor && this.isConstructor();
-  var isMethodCall = !(this.isToplevel && this.isToplevel() || isConstructor);
-  if (isMethodCall) {
-    var typeName = this.getTypeName();
-    var methodName = this.getMethodName();
+  var methodName = this.getMethodName()
+  var typeName = this.getTypeName()
+  var isMethodCall = methodName && !(this.isToplevel && this.isToplevel() || isConstructor);
+  if (isMethodCall && functionName) {
     if (functionName) {
       if (typeName && functionName.indexOf(typeName) != 0) {
         line += typeName + ".";
@@ -135,6 +144,8 @@ function CallSiteToString() {
     } else {
       line += typeName + "." + (methodName || "<anonymous>");
     }
+  } else if (typeName && !functionName) {
+    line += typeName + "." + (methodName || "<anonymous>");
   } else if (isConstructor) {
     line += "new " + (functionName || "<anonymous>");
   } else if (functionName) {
@@ -160,8 +171,7 @@ function mapEvalOrigin(origin) {
       line: match[3],
       column: match[4] - 1
     });
-    return 'eval at ' + match[1] + ' (' + position.source + ':' +
-      position.line + ':' + (position.column + 1) + ')';
+    return 'eval at ' + match[1] + ' (' + position.source + ':' + position.line + ':' + (position.column + 1) + ')';
   }
 
   // Parse nested eval() calls using recursion
