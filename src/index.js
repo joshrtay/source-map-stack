@@ -19,9 +19,8 @@ function getSourceMaps (content) {
   while (match = re.exec(content)) lastMatch = match;
   if (!lastMatch) return null;
   var sourceMappingURL = lastMatch[1]
-  var rawData = sourceMappingURL.slice(sourceMappingURL.indexOf(',') + 1);
-  sourceMapData = new Buffer(rawData, "base64").toString();
-  return new SourceMapConsumer(sourceMapData)
+  var rawData = sourceMappingURL.slice(sourceMappingURL.indexOf(',') + 1)
+  return new SourceMapConsumer(new Buffer(rawData, "base64").toString())
 }
 
 function prepareStackTrace(map, error, base) {
