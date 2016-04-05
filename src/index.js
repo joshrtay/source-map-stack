@@ -42,11 +42,9 @@ function getErrorSource(base, map, topFrame) {
 }
 
 function wrapCallSite(base, map, frame) {
-  // Most call sites will return the source file from getFileName(), but code
-  // passed to eval() ending in "//# sourceURL=..." will return the source file
-  // from getScriptNameOrSourceURL() instead
-  var position = getPosition(map, frame)
   frame = cloneCallSite(frame);
+  if (!frame.getFileName()) return frame
+  var position = getPosition(map, frame)
   if (!position.source) return frame
   frame.getFileName = function() { return path.resolve(path.join(base, position.source)) };
   frame.getLineNumber = function() { return position.line; };
